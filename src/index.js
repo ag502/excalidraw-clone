@@ -39,7 +39,8 @@ function newElement(type, x, y) {
     x,
     y,
     width: 0,
-    height: 0
+    height: 0,
+    isSelected: false
   }
   generateShape(element);
   return element;
@@ -157,18 +158,38 @@ function App() {
           drawScene();
         }}
         onMouseUp={e => {
+          if (elementType === 'selection') {
+            elements.forEach(element => {
+              element.isSelected = false;
+            })
+          }
           setDraggingElement(null);
           drawScene();
         }}
         onMouseMove={e => {
           if (!draggingElement) return;
+          // e.clientX - e.target.offsetLeft는 현재 마우스 포인터의 x 좌표
+          // draggingElement.x 는 현재 생성중인 element의 시작 x 좌표
+          // 현재 마우스 포인터 위치에서 element의 시작 좌표를 빼면 넓이가 나옴
           let width = e.clientX - e.target.offsetLeft - draggingElement.x;
           let height = e.clientY - e.target.offsetTop - draggingElement.y;
           draggingElement.width = width;
           // Make a perfect square or circle when shift is enabled
+          // shift를 누른 상태에서 드래그한다면 정비율로 확대되어야 함
           draggingElement.height = e.shiftKey ? width : height;
-          // 생성할 도형의 너비와 높이 정보 업데이트를 위해 호출
+          // 생성할 element의 넓이와 높이값 업데이트를 위한 호출
           generateShape(draggingElement);
+
+          if (elementType === 'selection') {
+            elements.forEach(element => {
+              // draggingElement는 selection element
+              element.isSelected = 
+                draggingElement.x <= element.x &&
+                draggingElement.y <= element.y &&
+                draggingElement.x + draggingElement.width >= element.x + element.width &&
+                draggingElement.y + draggingElement.height >= element.y + element.height
+            })
+          }
           drawScene();
         }}
       />
@@ -192,7 +213,7 @@ function drawScene() {
     element.draw(rc, context);
 
     // element가 선택되었을때, 생성되는 테두리
-    if (true || element.isSelected) {
+    if (element.isSelected) {
       const margin = 4;
       context.setLineDash([8, 4]);
       context.strokeRect(
