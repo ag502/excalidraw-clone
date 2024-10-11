@@ -131,16 +131,36 @@ function generateShape(element) {
 
 /**
  * @param {newElement} selection selectionElement
- * @description selection element 생성하는 함수
+ * @description selection element에 elements 배열의 원소가 포함되는지 파악하는 함수
  */
 function setSelection(selection) {
+  // Fix up negative width and height when dragging from right to left
+  // Note: it's a lot harder to do on mouse move because of rounding issues
+  let {x, y, width, height} = selection;
+
+  // selection element를 오른쪽에서 왼쪽으로 드래그할 때, 넒이가 음수가 됨
+  if (width < 0) {
+    // selection element의 시작 x점을 왼쪽으로 이동
+    x += width;
+    // width에 절댓값
+    width = - width;
+  }
+
+  // selection element를 아래에서 위로 드래그할 때, 높이가 음수가 됨
+  if (height < 0) {
+    // selection element의 시작 y점을 위로 이동
+    y += height;
+    height = - height;
+  }
+
+  // selection보다 element가 작으면 isSelected를 true로 설정
   elements.forEach(element => {
-    // draggingElement는 selection element
     element.isSelected = 
-      selection.x < element.x &&
-      selection.y < element.y &&
-      selection.x + selection.width > element.x + element.width &&
-      selection.y + selection.height > element.y + element.height
+      element.type !== 'selection' &&
+      x <= element.x &&
+      y <= element.y &&
+      x + width >= element.x + element.width &&
+      y + height >= element.y + element.height
   })
 }
 
@@ -227,6 +247,18 @@ function App() {
           drawScene();
         }}
         onMouseUp={e => {
+          // 오른쪽에서 왼쪽, 아래에서 위로 드래그되는 도형의 좌표 보정
+          // Fix up negative width and height when dragging from right to left
+          // Note: it's a lot harder to do on mouse move because of rounding issues
+          if (draggingElement.width < 0) {
+            draggingElement.x += draggingElement.width;
+            draggingElement.width = -draggingElement.width;
+          }
+          if (draggingElement.height < 0) {
+            draggingElement.y += draggingElement.height;
+            draggingElement.height = -draggingElement.height;
+          }
+
           if (elementType === 'selection') {
             elements.forEach(element => {
               element.isSelected = false;
