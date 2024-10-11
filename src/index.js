@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-import React, { useEffect, useLayoutEffect, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import ReactDOM from "react-dom";
 import rough from "roughjs/dist/rough.umd.js";
 
@@ -162,6 +162,26 @@ function App() {
   const [elementType, setElementType] = useState("selection");
   const [selectedElements, setSelectedElement] = useState([]);
 
+  const onKeyDown = useCallback((event) => {
+    if (event.key === 'Backspace') {
+      // Backspace를 누르면 선택된 element들을 뒤에서 부터 모두 제거
+      for (let i = elements.length - 1; i >= 0; i--) {
+        if (elements[i].isSelected) {
+          elements.splice(i, 1);
+        }
+      }
+      drawScene();
+    }
+  }, [])
+
+  useEffect(() => {
+    document.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    }
+  }, [onKeyDown])
+
   return (
     <div>
       <ElementOption type="rectangle" elementType={elementType} onElementTypeChange={setElementType}>Rectangle</ElementOption>
@@ -253,6 +273,7 @@ const rc = rough.canvas(canvas);
 const context = canvas.getContext("2d");
 
 function drawScene() {
+  // 그리기 전에 모두 지우지 않으면, mouseMove시 흔적들이 모두 그려짐
   context.clearRect(0, 0, canvas.width, canvas.height);
 
   elements.forEach(element => {
