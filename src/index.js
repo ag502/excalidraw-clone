@@ -191,6 +191,29 @@ function App() {
         }
       }
       drawScene();
+      event.preventDefault();
+      // 방향키로 선택된 element들을 이동
+    } else if (
+      event.key === 'ArrowLeft' ||
+      event.key === 'ArrowRight' ||
+      event.key === 'ArrowUp' ||
+      event.key === "ArrowDown"
+    ) {
+      // shift key를 같이 누르면 step을 5로 설정
+      const step = event.shiftKey ? 5 : 1;
+      elements.forEach(element => {
+        if (element.isSelected) {
+          if (event.key === 'ArrowLeft') element.x -= step;
+          else if (event.key === 'ArrowRight') element.x += step;
+          else if (event.key === 'ArrowUp') element.y -= step;
+          else if (event.key === 'ArrowDown') element.y += step;
+          // element의 시작점(x, y)가 변경되었기 때문에 한번 더 호출
+          generateShape(element);
+        }
+      })
+      drawScene();
+      // 키보드의 원래 동작을 막기위해 호출 (ex-키보드 아래방향키를 누를때, 스크롤 이동 방지)
+      event.preventDefault();
     }
   }, [])
 
