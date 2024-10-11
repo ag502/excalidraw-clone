@@ -1,5 +1,6 @@
+/* eslint-disable no-undef */
 import React, { useEffect, useLayoutEffect, useState } from "react";
-import ReactDOM from "react-dom/client";
+import ReactDOM from "react-dom";
 import rough from "roughjs/dist/rough.umd.js";
 
 import "./styles.css";
@@ -28,10 +29,10 @@ function rotate(x1, y1, x2, y2, angle) {
 
 /**
  * @param {*} type 
- * @param {*} x 도형이 시작되는 x 좌표
- * @param {*} y 도형이 시작되는 y 좌표
+ * @param {number} x 도형이 시작되는 x 좌표
+ * @param {number} y 도형이 시작되는 y 좌표
  * 
- * @description `element`의 타입, 시작되는 좌표, 넓이, 높이를 반환하는 함수. 내부적으로 `generateShape`을 호출하고 있음
+ * @description `element`의 타입, 시작되는 좌표, 넓이, 높이를 반환하는 함수.
  */
 function newElement(type, x, y) {
   const element = {
@@ -42,14 +43,13 @@ function newElement(type, x, y) {
     height: 0,
     isSelected: false
   }
-  generateShape(element);
   return element;
 }
 
 const generator = rough.generator();
 
 /**
- * @param {*} element 
+ * @param {newElement} element 
  * @description `newElement` 에서 만들어진 `element` 객체에 `element`를 그리는 `draw`함수를 추가하는 함수
  */
 function generateShape(element) {
@@ -57,8 +57,11 @@ function generateShape(element) {
     // rc - rough canvas
     // context - canvas rendering context
     element.draw = (rc, context) => {
+      // context의 원래 fillStyle 저장
+      const fillStyle = context.fillStyle;
       context.fillStyle = "rgba(0, 0, 255, 0.10)";
       context.fillRect(element.x, element.y, element.width, element.height);
+      context.fillStyle = fillStyle;
     };
   } else if (element.type === "rectangle") {
     const shape = generator.rectangle(
@@ -70,6 +73,16 @@ function generateShape(element) {
     element.draw = (rc, context) => {
       rc.draw(shape);
     }
+  } else if (element.type === "ellipse") {
+    const shape = generator.ellipse(
+      element.x + element.width / 2,
+      element.y + element.height / 2,
+      element.width,
+      element.height
+    );
+    element.draw = (rc, context) => {
+      rc.draw(shape);
+    };
   } else if (element.type === 'arrow') {
     const x1 = element.x;
     const y1 = element.y;
@@ -100,22 +113,35 @@ function generateShape(element) {
       shapes.forEach(shape => rc.draw(shape));
     }
   } else if (element.type === 'text') {
-    if (element.text === undefined) {
-      element.text = prompt("What text do you want?");
-    }
     element.draw = (rc, context) => {
-      context.font = "20px Virgil";
-      const measure = context.measureText(element.text);
-      const height = measure.actualBoundingBoxAscent + measure.actualBoundingBoxDescent;
+      const font = context.font;
+      context.font = element.font;
+      const height = element.measure.actualBoundingBoxAscent + element.measure.actualBoundingBoxDescent;
       context.fillText(
         element.text,
-        element.x - measure.width / 2,
-        element.y + measure.actualBoundingBoxAscent - height / 2
+        element.x,
+        element.y + 2 * element.measure.actualBoundingBoxAscent - height / 2
       );
+      context.font = font;
     }
   } else {
     throw new Error(`Unimplemented type ${element.type}`);
   }
+}
+
+/**
+ * @param {newElement} selection selectionElement
+ * @description selection element 생성하는 함수
+ */
+function setSelection(selection) {
+  elements.forEach(element => {
+    // draggingElement는 selection element
+    element.isSelected = 
+      selection.x < element.x &&
+      selection.y < element.y &&
+      selection.x + selection.width > element.x + element.width &&
+      selection.y + selection.height > element.y + element.height
+  })
 }
 
 function ElementOption({ type, elementType, onElementTypeChange, children }) {
@@ -148,13 +174,36 @@ function App() {
         width={window.innerWidth}
         height={window.innerHeight}
         onMouseDown={e => {
-          const element = newElement(
-            elementType,
-            e.clientX - e.target.offsetLeft,
-            e.clientY - e.target.offsetTop
-          );
+          const x = e.clientX - e.target.offsetLeft;
+          const y = e.clientY - e.target.offsetTop;
+          const element = newElement(elementType, x, y);
+
+          if (elementType === 'text') {
+            element.text = prompt("What text do you want?");
+            element.font = "20px Virgil";
+            // context의 원래 font 저장
+            const font = context.font;
+            // element font로 context font 변경
+            context.font = element.font;
+            element.measure = context.measureText(element.text);
+            // context의 원래 font로 변경
+            context.font = font;
+            const height = element.measure.actualBoundingBoxAscent + element.measure.actualBoundingBoxDescent;
+            // text 가운데 정렬
+            element.x -= element.measure.width / 2;
+            element.y -= element.measure.actualBoundingBoxAscent;
+            element.width = element.measure.width;
+            element.height = height
+          }
+          generateShape(element);
           elements.push(element);
-          setDraggingElement(element);
+
+          if (elementType === 'text') {
+            // text element는 드래그 요소가 아님
+            setDraggingElement(null);
+          } else {
+            setDraggingElement(element);
+          }
           drawScene();
         }}
         onMouseUp={e => {
@@ -164,6 +213,11 @@ function App() {
             })
           }
           setDraggingElement(null);
+          if (elementType === 'selection') {
+            // selection element 드래그를 멈췄을 때, elements에서 제거
+            elements.pop();
+            setSelection(draggingElement);
+          }
           drawScene();
         }}
         onMouseMove={e => {
@@ -181,14 +235,7 @@ function App() {
           generateShape(draggingElement);
 
           if (elementType === 'selection') {
-            elements.forEach(element => {
-              // draggingElement는 selection element
-              element.isSelected = 
-                draggingElement.x <= element.x &&
-                draggingElement.y <= element.y &&
-                draggingElement.x + draggingElement.width >= element.x + element.width &&
-                draggingElement.y + draggingElement.height >= element.y + element.height
-            })
+            setSelection(draggingElement);
           }
           drawScene();
         }}
@@ -198,15 +245,14 @@ function App() {
 }
 
 const rootElement = document.getElementById("root");
-const root = ReactDOM.createRoot(rootElement);
-root.render(<App/>);
+ReactDOM.render(<App />, rootElement);
 
 
+const canvas = document.getElementById("canvas");
+const rc = rough.canvas(canvas);
+const context = canvas.getContext("2d");
 
 function drawScene() {
-  const canvas = document.getElementById("canvas");
-  const rc = rough.canvas(canvas);
-  const context = canvas.getContext("2d");
   context.clearRect(0, 0, canvas.width, canvas.height);
 
   elements.forEach(element => {
@@ -215,6 +261,9 @@ function drawScene() {
     // element가 선택되었을때, 생성되는 테두리
     if (element.isSelected) {
       const margin = 4;
+      
+      const lineDash = context.getLineDash();
+
       context.setLineDash([8, 4]);
       context.strokeRect(
         element.x - margin,
@@ -222,7 +271,7 @@ function drawScene() {
         element.width + margin * 2,
         element.height + margin * 2
       )
-      context.setLineDash([]);
+      context.setLineDash(lineDash);
     }
   })
 }
