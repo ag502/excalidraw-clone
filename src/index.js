@@ -333,6 +333,10 @@ const canvas = document.getElementById("canvas");
 const rc = rough.canvas(canvas);
 const context = canvas.getContext("2d");
 
+// Big hack to ensure that all the 1px lines are drawn at 1px instead of 2px
+// https://stackoverflow.com/questions/13879322/drawing-a-1px-thick-line-in-canvas-creates-a-2px-thick-line/13879402#comment90766599_13879402
+context.translate(0.5, 0.5);
+
 function drawScene() {
   // 그리기 전에 모두 지우지 않으면, mouseMove시 흔적들이 모두 그려짐
   context.clearRect(0, 0, canvas.width, canvas.height);
