@@ -129,38 +129,56 @@ function generateShape(element) {
   }
 }
 
+// If the element is created from right to left, the width is going to be negative
+// This set of functions retrieves the absolute position of the 4 points.
+// We can't just always normalize it since we need to remember the fact that an arrow
+// is pointing left or right.
+// x1, y1은 element의 시작점, x2, y2는 element의 끝점
+/**
+ * @param {newElement} element 
+ * @returns 
+ * @description width가 음수일 경우, 시작점에서 width를 더해 시작점 좌표를 보정
+ */
+function getElementAbsoluteX1(element) {
+  return element.width >= 0 ? element.x : element.x + element.width;
+}
+
+function getElementAbsoluteX2(element) {
+  return element.width >= 0 ? element.x + element.width : element.x;
+}
+
+function getElementAbsoluteY1(element) {
+  return element.height >= 0 ? element.y : element.y + element.height;
+}
+
+function getElementAbsoluteY2(element) {
+  return element.height >= 0 ? element.y + element.height : element.y;
+}
+
 /**
  * @param {newElement} selection selectionElement
  * @description selection element에 elements 배열의 원소가 포함되는지 파악하는 함수
  */
 function setSelection(selection) {
-  // Fix up negative width and height when dragging from right to left
-  // Note: it's a lot harder to do on mouse move because of rounding issues
-  let {x, y, width, height} = selection;
-
-  // selection element를 오른쪽에서 왼쪽으로 드래그할 때, 넒이가 음수가 됨
-  if (width < 0) {
-    // selection element의 시작 x점을 왼쪽으로 이동
-    x += width;
-    // width에 절댓값
-    width = - width;
-  }
-
-  // selection element를 아래에서 위로 드래그할 때, 높이가 음수가 됨
-  if (height < 0) {
-    // selection element의 시작 y점을 위로 이동
-    y += height;
-    height = - height;
-  }
+  // selection element의 시작점과 끝점의 음수 넓이, 높이를 보정
+  const selectionX1 = getElementAbsoluteX1(selection);
+  const selectionX2 = getElementAbsoluteX2(selection);
+  const selectionY1 = getElementAbsoluteY1(selection);
+  const selectionY2 = getElementAbsoluteY2(selection);
 
   // selection보다 element가 작으면 isSelected를 true로 설정
   elements.forEach(element => {
+    const elementX1 = getElementAbsoluteX1(element);
+    const elementX2 = getElementAbsoluteX2(element);
+    const elementY1 = getElementAbsoluteY1(element);
+    const elementY2 = getElementAbsoluteY2(element);
+
     element.isSelected = 
       element.type !== 'selection' &&
-      x <= element.x &&
-      y <= element.y &&
-      x + width >= element.x + element.width &&
-      y + height >= element.y + element.height
+      selectionX1 <= elementX1 &&
+      selectionY1 <= elementY1 &&
+      selectionX2 >= elementX2 &&
+      selectionY2 >= elementY2
   })
 }
 
@@ -270,18 +288,6 @@ function App() {
           drawScene();
         }}
         onMouseUp={e => {
-          // 오른쪽에서 왼쪽, 아래에서 위로 드래그되는 도형의 좌표 보정
-          // Fix up negative width and height when dragging from right to left
-          // Note: it's a lot harder to do on mouse move because of rounding issues
-          if (draggingElement.width < 0) {
-            draggingElement.x += draggingElement.width;
-            draggingElement.width = -draggingElement.width;
-          }
-          if (draggingElement.height < 0) {
-            draggingElement.y += draggingElement.height;
-            draggingElement.height = -draggingElement.height;
-          }
-
           if (elementType === 'selection') {
             elements.forEach(element => {
               element.isSelected = false;
@@ -340,12 +346,18 @@ function drawScene() {
       
       const lineDash = context.getLineDash();
 
+      // 없어도 되는게 아닐지..?
+      const elementX1 = getElementAbsoluteX1(element);
+      const elementX2 = getElementAbsoluteX2(element);
+      const elementY1 = getElementAbsoluteY1(element);
+      const elementY2 = getElementAbsoluteY2(element);
+
       context.setLineDash([8, 4]);
       context.strokeRect(
-        element.x - margin,
-        element.y - margin,
-        element.width + margin * 2,
-        element.height + margin * 2
+        elementX1 - margin,
+        elementY1 - margin,
+        elementX2 - elementX1 + margin * 2,
+        elementY2 - elementY1 + margin * 2
       )
       context.setLineDash(lineDash);
     }
