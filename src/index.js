@@ -312,12 +312,16 @@ function App() {
               element.isSelected = false;
             })
           }
-          setDraggingElement(null);
           if (elementType === 'selection') {
             // selection element 드래그를 멈췄을 때, elements에서 제거
             elements.pop();
             setSelection(draggingElement);
+          } else {
+            // 마지막으로 생성한 element를 선택
+            draggingElement.isSelected = true;
           }
+          setDraggingElement(null);
+          // element를 다 생성한 후, selection으로 복귀
           setElementType("selection");
           drawScene();
         }}
