@@ -189,13 +189,23 @@ function setSelection(selection) {
   })
 }
 
+function clearSelection() {
+  elements.forEach(element => {
+    element.isSelected = false;
+  })
+}
+
 function ElementOption({ type, elementType, onElementTypeChange, children }) {
   return (
     <label>
       <input
         type="radio"
         checked={elementType === type}
-        onChange={() => onElementTypeChange(type)}
+        onChange={() => {
+          onElementTypeChange(type);
+          clearSelection();
+          drawScene();
+        }}
       />
       {children}
     </label>
@@ -304,6 +314,7 @@ function App() {
             elements.pop();
             setSelection(draggingElement);
           }
+          setElementType("selection");
           drawScene();
         }}
         onMouseMove={e => {
