@@ -64,30 +64,32 @@ function generateShape(element) {
       context.fillStyle = fillStyle;
     };
   } else if (element.type === "rectangle") {
-    const shape = generator.rectangle(
-      element.x,
-      element.y,
-      element.width,
-      element.height
-    );
+    const shape = generator.rectangle(0, 0, element.width, element.height);
+
     element.draw = (rc, context) => {
+      // 화살표 이동시 generateShape을 호출하지 않기 위해, 변경된 좌표를 draw함수에서 반영
+      context.translate(element.x, element.y);
       rc.draw(shape);
+      // 그린후, context의 상태로 복원
+      context.translate(-element.x, -element.y);
     }
   } else if (element.type === "ellipse") {
     const shape = generator.ellipse(
-      element.x + element.width / 2,
-      element.y + element.height / 2,
+      element.width / 2,
+      element.height / 2,
       element.width,
       element.height
     );
     element.draw = (rc, context) => {
+      context.translate(element.x, element.y);
       rc.draw(shape);
+      context.translate(-element.x, -element.y);
     };
   } else if (element.type === 'arrow') {
-    const x1 = element.x;
-    const y1 = element.y;
-    const x2 = x1 + element.width;
-    const y2 = y1 + element.height;
+    const x1 = 0;
+    const y1 = 0;
+    const x2 = element.width;
+    const y2 = element.height;
 
     const size = 30; // pixel
     const distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
@@ -104,13 +106,18 @@ function generateShape(element) {
     const [x4, y4] = rotate(xs, ys, x2, y2, (angle * Math.PI) / 180);
 
     const shapes = [
-      generator.line(x1, y1, x2, y2),
+      //      \
       generator.line(x3, y3, x2, y2),
+      // ------
+      generator.line(x1, y1, x2, y2),
+      //      /
       generator.line(x4, y4, x2, y2)
     ];
 
     element.draw = (rc, context) => {
+      context.translate(element.x, element.y);
       shapes.forEach(shape => rc.draw(shape));
+      context.translate(-element.x, -element.y);
     }
   } else if (element.type === 'text') {
     element.draw = (rc, context) => {
@@ -225,8 +232,6 @@ function App() {
           else if (event.key === 'ArrowRight') element.x += step;
           else if (event.key === 'ArrowUp') element.y -= step;
           else if (event.key === 'ArrowDown') element.y += step;
-          // element의 시작점(x, y)가 변경되었기 때문에 한번 더 호출
-          generateShape(element);
         }
       })
       drawScene();
