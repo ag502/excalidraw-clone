@@ -301,12 +301,16 @@ function App() {
           if (elementType === 'text') {
             // text element는 드래그 요소가 아님
             setDraggingElement(null);
+            // 생성된 text가 선택되도록 구현
+            element.isSelected = true;
           } else {
             setDraggingElement(element);
           }
           drawScene();
         }}
         onMouseUp={e => {
+          if (!draggingElement) return;
+
           if (elementType === 'selection') {
             elements.forEach(element => {
               element.isSelected = false;
