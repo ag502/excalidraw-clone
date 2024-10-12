@@ -52,7 +52,7 @@ const generator = rough.generator();
  * @param {newElement} element 
  * @description `newElement` 에서 만들어진 `element` 객체에 `element`를 그리는 `draw`함수를 추가하는 함수
  */
-function generateShape(element) {
+function generateDraw(element) {
   if (element.type === "selection") {
     // rc - rough canvas
     // context - canvas rendering context
@@ -275,7 +275,11 @@ function App() {
           const element = newElement(elementType, x, y);
 
           if (elementType === 'text') {
-            element.text = prompt("What text do you want?");
+            const text = prompt("What text do you want?");
+            if (text === null) {
+              return;
+            }
+            element.text = text;
             element.font = "20px Virgil";
             // context의 원래 font 저장
             const font = context.font;
@@ -291,7 +295,7 @@ function App() {
             element.width = element.measure.width;
             element.height = height
           }
-          generateShape(element);
+          generateDraw(element);
           elements.push(element);
 
           if (elementType === 'text') {
@@ -329,7 +333,7 @@ function App() {
           // shift를 누른 상태에서 드래그한다면 정비율로 확대되어야 함
           draggingElement.height = e.shiftKey ? width : height;
           // 생성할 element의 넓이와 높이값 업데이트를 위한 호출
-          generateShape(draggingElement);
+          generateDraw(draggingElement);
 
           if (elementType === 'selection') {
             setSelection(draggingElement);
