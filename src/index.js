@@ -1,5 +1,5 @@
 /* eslint-disable no-undef */
-import React, { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import React from "react";
 import ReactDOM from "react-dom";
 import rough from "roughjs/dist/rough.umd.js";
 
@@ -212,145 +212,161 @@ function ElementOption({ type, elementType, onElementTypeChange, children }) {
   );
 }
 
-function App() {
-  const [draggingElement, setDraggingElement] = useState(null);
-  const [elementType, setElementType] = useState("selection");
-  const [selectedElements, setSelectedElement] = useState([]);
-
-  const onKeyDown = useCallback((event) => {
-    if (event.key === 'Backspace') {
-      // Backspace를 누르면 선택된 element들을 뒤에서 부터 모두 제거
-      for (let i = elements.length - 1; i >= 0; i--) {
-        if (elements[i].isSelected) {
-          elements.splice(i, 1);
+class App extends React.Component {
+  componentDidMount() {
+    this.onKeyDown = (event) => {
+      if (event.key === 'Backspace') {
+        // Backspace를 누르면 선택된 element들을 뒤에서 부터 모두 제거
+        for (let i = elements.length - 1; i >= 0; i--) {
+          if (elements[i].isSelected) {
+            elements.splice(i, 1);
+          }
         }
+        drawScene();
+        event.preventDefault();
+        // 방향키로 선택된 element들을 이동
+      } else if (
+        event.key === 'ArrowLeft' ||
+        event.key === 'ArrowRight' ||
+        event.key === 'ArrowUp' ||
+        event.key === "ArrowDown"
+      ) {
+        // shift key를 같이 누르면 step을 5로 설정
+        const step = event.shiftKey ? 5 : 1;
+        elements.forEach(element => {
+          if (element.isSelected) {
+            if (event.key === 'ArrowLeft') element.x -= step;
+            else if (event.key === 'ArrowRight') element.x += step;
+            else if (event.key === 'ArrowUp') element.y -= step;
+            else if (event.key === 'ArrowDown') element.y += step;
+          }
+        })
+        drawScene();
+        // 키보드의 원래 동작을 막기위해 호출 (ex-키보드 아래방향키를 누를때, 스크롤 이동 방지)
+        event.preventDefault();
       }
-      drawScene();
-      event.preventDefault();
-      // 방향키로 선택된 element들을 이동
-    } else if (
-      event.key === 'ArrowLeft' ||
-      event.key === 'ArrowRight' ||
-      event.key === 'ArrowUp' ||
-      event.key === "ArrowDown"
-    ) {
-      // shift key를 같이 누르면 step을 5로 설정
-      const step = event.shiftKey ? 5 : 1;
-      elements.forEach(element => {
-        if (element.isSelected) {
-          if (event.key === 'ArrowLeft') element.x -= step;
-          else if (event.key === 'ArrowRight') element.x += step;
-          else if (event.key === 'ArrowUp') element.y -= step;
-          else if (event.key === 'ArrowDown') element.y += step;
-        }
-      })
-      drawScene();
-      // 키보드의 원래 동작을 막기위해 호출 (ex-키보드 아래방향키를 누를때, 스크롤 이동 방지)
-      event.preventDefault();
     }
-  }, [])
+    document.addEventListener("keydown", this.onKeyDown);
+  }
 
-  useEffect(() => {
-    document.addEventListener("keydown", onKeyDown);
+  componentWillUnmount() {
+    document.removeEventListener("keydown", this.onKeyDown);
+  }
 
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
+  constructor() {
+    super();
+    this.state = {
+      draggingElement: null,
+      elementType: "selection"
     }
-  }, [onKeyDown])
+  }
 
-  return (
-    <div>
-      <ElementOption type="rectangle" elementType={elementType} onElementTypeChange={setElementType}>Rectangle</ElementOption>
-      <ElementOption type="ellipse" elementType={elementType} onElementTypeChange={setElementType}>Ellipse</ElementOption>
-      <ElementOption type="arrow" elementType={elementType} onElementTypeChange={setElementType}>Arrow</ElementOption>
-      <ElementOption type="text" elementType={elementType} onElementTypeChange={setElementType}>Text</ElementOption>
-      <ElementOption type="selection" elementType={elementType} onElementTypeChange={setElementType}>Selection</ElementOption>
-      <canvas 
-        id="canvas"
-        width={window.innerWidth}
-        height={window.innerHeight}
-        onMouseDown={e => {
-          const x = e.clientX - e.target.offsetLeft;
-          const y = e.clientY - e.target.offsetTop;
-          const element = newElement(elementType, x, y);
+  setElementType(type) {
+    this.setState({ elementType: type})
+  }
 
-          if (elementType === 'text') {
-            const text = prompt("What text do you want?");
-            if (text === null) {
-              return;
+  render() {
+    return (
+      <div>
+        <ElementOption type="rectangle" elementType={this.state.elementType} onElementTypeChange={this.setElementType.bind(this)}>Rectangle</ElementOption>
+        <ElementOption type="ellipse" elementType={this.state.elementType} onElementTypeChange={this.setElementType.bind(this)}>Ellipse</ElementOption>
+        <ElementOption type="arrow" elementType={this.state.elementType} onElementTypeChange={this.setElementType.bind(this)}>Arrow</ElementOption>
+        <ElementOption type="text" elementType={this.state.elementType} onElementTypeChange={this.setElementType.bind(this)}>Text</ElementOption>
+        <ElementOption type="selection" elementType={this.state.elementType} onElementTypeChange={this.setElementType.bind(this)}>Selection</ElementOption>
+
+        <canvas 
+          id="canvas"
+          width={window.innerWidth}
+          height={window.innerHeight}
+          onMouseDown={e => {
+            const x = e.clientX - e.target.offsetLeft;
+            const y = e.clientY - e.target.offsetTop;
+            const element = newElement(this.state.elementType, x, y);
+
+            if (this.state.elementType === 'text') {
+              const text = prompt("What text do you want?");
+              if (text === null) {
+                return;
+              }
+              element.text = text;
+              element.font = "20px Virgil";
+              // context의 원래 font 저장
+              const font = context.font;
+              // element font로 context font 변경
+              context.font = element.font;
+              element.measure = context.measureText(element.text);
+              // context의 원래 font로 변경
+              context.font = font;
+              const height = element.measure.actualBoundingBoxAscent + element.measure.actualBoundingBoxDescent;
+              // text 가운데 정렬
+              element.x -= element.measure.width / 2;
+              element.y -= element.measure.actualBoundingBoxAscent;
+              element.width = element.measure.width;
+              element.height = height
             }
-            element.text = text;
-            element.font = "20px Virgil";
-            // context의 원래 font 저장
-            const font = context.font;
-            // element font로 context font 변경
-            context.font = element.font;
-            element.measure = context.measureText(element.text);
-            // context의 원래 font로 변경
-            context.font = font;
-            const height = element.measure.actualBoundingBoxAscent + element.measure.actualBoundingBoxDescent;
-            // text 가운데 정렬
-            element.x -= element.measure.width / 2;
-            element.y -= element.measure.actualBoundingBoxAscent;
-            element.width = element.measure.width;
-            element.height = height
-          }
-          generateDraw(element);
-          elements.push(element);
+            generateDraw(element);
+            elements.push(element);
 
-          if (elementType === 'text') {
-            // text element는 드래그 요소가 아님
-            setDraggingElement(null);
-            // 생성된 text가 선택되도록 구현
-            element.isSelected = true;
-          } else {
-            setDraggingElement(element);
-          }
-          drawScene();
-        }}
-        onMouseUp={e => {
-          if (!draggingElement) return;
+            if (this.state.elementType === 'text') {
+              // text element는 드래그 요소가 아님
+              this.setState({ draggingElement: null});
+              // 생성된 text가 선택되도록 구현
+              element.isSelected = true;
+            } else {
+              this.setState({ draggingElement: element });
+            }
 
-          if (elementType === 'selection') {
-            elements.forEach(element => {
-              element.isSelected = false;
-            })
-          }
-          if (elementType === 'selection') {
-            // selection element 드래그를 멈췄을 때, elements에서 제거
-            elements.pop();
-            setSelection(draggingElement);
-          } else {
-            // 마지막으로 생성한 element를 선택
-            draggingElement.isSelected = true;
-          }
-          setDraggingElement(null);
-          // element를 다 생성한 후, selection으로 복귀
-          setElementType("selection");
-          drawScene();
-        }}
-        onMouseMove={e => {
-          if (!draggingElement) return;
-          // e.clientX - e.target.offsetLeft는 현재 마우스 포인터의 x 좌표
-          // draggingElement.x 는 현재 생성중인 element의 시작 x 좌표
-          // 현재 마우스 포인터 위치에서 element의 시작 좌표를 빼면 넓이가 나옴
-          let width = e.clientX - e.target.offsetLeft - draggingElement.x;
-          let height = e.clientY - e.target.offsetTop - draggingElement.y;
-          draggingElement.width = width;
-          // Make a perfect square or circle when shift is enabled
-          // shift를 누른 상태에서 드래그한다면 정비율로 확대되어야 함
-          draggingElement.height = e.shiftKey ? width : height;
-          // 생성할 element의 넓이와 높이값 업데이트를 위한 호출
-          generateDraw(draggingElement);
+            const onMouseMove = (e) => {
+              const draggingElement = this.state.draggingElement;
+              if (!draggingElement) return;
+              // e.clientX - e.target.offsetLeft는 현재 마우스 포인터의 x 좌표
+              // draggingElement.x 는 현재 생성중인 element의 시작 x 좌표
+              // 현재 마우스 포인터 위치에서 element의 시작 좌표를 빼면 넓이가 나옴
+              let width = e.clientX - e.target.offsetLeft - draggingElement.x;
+              let height = e.clientY - e.target.offsetTop - draggingElement.y;
+              draggingElement.width = width;
+              // Make a perfect square or circle when shift is enabled
+              // shift를 누른 상태에서 드래그한다면 정비율로 확대되어야 함
+              draggingElement.height = e.shiftKey ? width : height;
+              // 생성할 element의 넓이와 높이값 업데이트를 위한 호출
+              generateDraw(draggingElement);
 
-          if (elementType === 'selection') {
-            setSelection(draggingElement);
-          }
-          drawScene();
-        }}
-      />
-    </div>
-  )
+              if (this.state.elementType === 'selection') {
+                setSelection(draggingElement);
+              }
+              drawScene();
+            }
+
+            const onMouseUp = (e) => {
+              window.removeEventListener("mousemove", onMouseMove);
+              window.removeEventListener("mouseup", onMouseUp);
+
+              const draggingElement = this.state.draggingElement;
+              if (!draggingElement) return;
+
+              if (this.state.elementType === 'selection') {
+                // selection element 드래그를 멈췄을 때, elements에서 제거
+                elements.pop();
+                setSelection(draggingElement);
+              } else {
+                // 마지막으로 생성한 element를 선택
+                draggingElement.isSelected = true;
+              }
+              this.setState({ draggingElement: null });
+              // element를 다 생성한 후, selection으로 복귀
+              this.setState({ elementType: "selection" });
+              drawScene();
+            }
+
+            window.addEventListener("mousemove", onMouseMove);
+            window.addEventListener("mouseup", onMouseUp);
+
+            drawScene();
+          }}
+        />
+      </div>
+    )
+  }
 }
 
 const rootElement = document.getElementById("root");
