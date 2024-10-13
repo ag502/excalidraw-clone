@@ -309,7 +309,10 @@ class App extends React.Component {
 
             if (this.state.elementType === 'text') {
               // text element는 드래그 요소가 아님
-              this.setState({ draggingElement: null});
+              this.setState({ 
+                draggingElement: null,
+                elementType: "selection"
+              });
               // 생성된 text가 선택되도록 구현
               element.isSelected = true;
             } else {
@@ -352,9 +355,11 @@ class App extends React.Component {
                 // 마지막으로 생성한 element를 선택
                 draggingElement.isSelected = true;
               }
-              this.setState({ draggingElement: null });
               // element를 다 생성한 후, selection으로 복귀
-              this.setState({ elementType: "selection" });
+              this.setState({
+                draggingElement: null,
+                elementType: "selection"
+              })
               drawScene();
             }
 
