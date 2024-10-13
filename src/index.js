@@ -383,7 +383,8 @@ context.translate(0.5, 0.5);
 
 function drawScene() {
   // 그리기 전에 모두 지우지 않으면, mouseMove시 흔적들이 모두 그려짐
-  context.clearRect(0, 0, canvas.width, canvas.height);
+  // -0.5, -0.5로 하는 이유는 원점밖으로 나가서 그려지는 도형을 지우려고?
+  context.clearRect(-0.5, -0.5, canvas.width, canvas.height);
 
   elements.forEach(element => {
     element.draw(rc, context);
