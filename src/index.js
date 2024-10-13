@@ -68,6 +68,7 @@ function generateDraw(element) {
 
     element.draw = (rc, context) => {
       // 화살표 이동시 generateShape을 호출하지 않기 위해, 변경된 좌표를 draw함수에서 반영
+      // element의 x, y 좌표만 변경해도 그릴때 반영되게끔 수정
       context.translate(element.x, element.y);
       rc.draw(shape);
       // 그린후, context의 상태로 복원
@@ -282,6 +283,28 @@ class App extends React.Component {
             const y = e.clientY - e.target.offsetTop;
             const element = newElement(this.state.elementType, x, y);
 
+            // 마우스 클릭 위치가 선택된 element내부인지 여부
+            // 드래그로 element를 옮기려고 하는 경우인지 여부
+            let isDraggingElements = false;
+            const cursorStyle = document.documentElement.style.cursor;
+            if (this.state.elementType === 'selection') {
+              // selection element일 때, 마우스를 클릭하는 좌표가 선택된 element들 중 하나의 내부라면
+              // isDraggingElement를 true로 변경
+              isDraggingElements = elements.some(el => {
+                if (el.isSelected) {
+                  const minX = Math.min(el.x, el.x + el.width);
+                  const maxX = Math.max(el.x, el.x + el.width);
+                  const minY = Math.min(el.y, el.y + el.height);
+                  const maxY = Math.max(el.y, el.y + el.height);
+                  return minX <= x && x <= maxX && minY <= y && y <= maxY;
+                }
+              })
+              // 선택된 element의 내부라면 cursor 모양 변경
+              if (isDraggingElements) {
+                document.documentElement.style.cursor = "move";
+              }
+            }
+
             if (this.state.elementType === 'text') {
               const text = prompt("What text do you want?");
               if (text === null) {
@@ -318,7 +341,29 @@ class App extends React.Component {
               this.setState({ draggingElement: element });
             }
 
+            // lastX, lastY의 초깃값은 마우스 클릭의 시작점 좌표로 설정
+            let lastX = x;
+            let lastY = y;
+
             const onMouseMove = (e) => {
+              // 도형을 드래그로 이동하려고 하는 경우
+              if (isDraggingElements) {
+                const selectedElements = elements.filter(element => element.isSelected);
+                if (selectedElements.length) {
+                  const x = e.clientX - e.target.offsetLeft;
+                  const y = e.clientY - e.target.offsetTop;
+                  // 선택된 element들을 드래그한 거리만큼 이동
+                  elements.forEach(element => {
+                    element.x += x - lastX;
+                    element.y += y - lastY;
+                  });
+                  lastX = x;
+                  lastY = y;
+                  drawScene();
+                  return;
+                }
+              }
+
               const draggingElement = this.state.draggingElement;
               if (!draggingElement) return;
               // e.clientX - e.target.offsetLeft는 현재 마우스 포인터의 x 좌표
@@ -342,14 +387,20 @@ class App extends React.Component {
             const onMouseUp = (e) => {
               window.removeEventListener("mousemove", onMouseMove);
               window.removeEventListener("mouseup", onMouseUp);
+              document.documentElement.style.cursor = cursorStyle;
 
               const draggingElement = this.state.draggingElement;
               if (!draggingElement) return;
 
               if (this.state.elementType === 'selection') {
+                // 드래그로 element를 이동하는 경우
+                if (isDraggingElements) {
+                  isDraggingElements = false;
+                } else {
+                  setSelection(draggingElement);
+                }
                 // selection element 드래그를 멈췄을 때, elements에서 제거
                 elements.pop();
-                setSelection(draggingElement);
               } else {
                 // 마지막으로 생성한 element를 선택
                 draggingElement.isSelected = true;
