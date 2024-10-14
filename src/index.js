@@ -8,6 +8,24 @@ import "./styles.css";
 const elements = [];
 
 /**
+ * @param {*} x 
+ * @param {*} y 
+ * @returns
+ * 
+ * @description x, y 좌표가 element 내부인지 판단하는 함수 
+ */
+function isInsideAnElement(x, y) {
+  return (element) => {
+    const x1 = getElementAbsoluteX1(element);
+    const x2 = getElementAbsoluteX2(element);
+    const y1 = getElementAbsoluteY1(element);
+    const y2 = getElementAbsoluteY2(element);
+
+    return (x1 <= x && x <= x2) && (y1 <= y && y <= y2);
+  }
+}
+
+/**
  * @param {*} x1 
  * @param {*} y1 
  * @param {*} x2 
@@ -218,7 +236,7 @@ function getElementAbsoluteY2(element) {
 
 /**
  * @param {newElement} selection selectionElement
- * @description selection element에 elements 배열의 원소가 포함되는지 파악하는 함수
+ * @description selection element에 elements 배열의 원소가 포함되는지 파악하는 함수. 포함된다면 isSelected를 true로 변환
  */
 function setSelection(selection) {
   // selection element의 시작점과 끝점의 음수 넓이, 높이를 보정
@@ -372,65 +390,65 @@ class App extends React.Component {
             onMouseDown={e => {
               const x = e.clientX - e.target.offsetLeft;
               const y = e.clientY - e.target.offsetTop;
-              const element = newElement(this.state.elementType, x, y);
 
               // 마우스 클릭 위치가 선택된 element내부인지 여부
               // 드래그로 element를 옮기려고 하는 경우인지 여부
               let isDraggingElements = false;
               const cursorStyle = document.documentElement.style.cursor;
               if (this.state.elementType === 'selection') {
-                // selection element일 때, 마우스를 클릭하는 좌표가 선택된 element들 중 하나의 내부라면
-                // isDraggingElement를 true로 변경
-                isDraggingElements = elements.some(el => {
-                  if (el.isSelected) {
-                    const minX = Math.min(el.x, el.x + el.width);
-                    const maxX = Math.max(el.x, el.x + el.width);
-                    const minY = Math.min(el.y, el.y + el.height);
-                    const maxY = Math.max(el.y, el.y + el.height);
-                    return minX <= x && x <= maxX && minY <= y && y <= maxY;
-                  }
-                })
+                // 마우스의 클릭 위치가 element의 내부에 있는 element들중 첫번째 element
+                const selectedElement = elements.find(isInsideAnElement(x, y));
+
+                if (selectedElement) {
+                  this.setState({ draggingElement: selectedElement});
+                }
+
+                isDraggingElements = elements.some(element => element.isSelected);
+
                 // 선택된 element의 내부라면 cursor 모양 변경
                 if (isDraggingElements) {
                   document.documentElement.style.cursor = "move";
                 }
-              }
-
-              if (this.state.elementType === 'text') {
-                const text = prompt("What text do you want?");
-                if (text === null) {
-                  return;
-                }
-                element.text = text;
-                element.font = "20px Virgil";
-                // context의 원래 font 저장
-                const font = context.font;
-                // element font로 context font 변경
-                context.font = element.font;
-                element.measure = context.measureText(element.text);
-                // context의 원래 font로 변경
-                context.font = font;
-                const height = element.measure.actualBoundingBoxAscent + element.measure.actualBoundingBoxDescent;
-                // text 가운데 정렬
-                element.x -= element.measure.width / 2;
-                element.y -= element.measure.actualBoundingBoxAscent;
-                element.width = element.measure.width;
-                element.height = height
-              }
-              generateDraw(element);
-              elements.push(element);
-
-              if (this.state.elementType === 'text') {
-                // text element는 드래그 요소가 아님
-                this.setState({ 
-                  draggingElement: null,
-                  elementType: "selection"
-                });
-                // 생성된 text가 선택되도록 구현
-                element.isSelected = true;
               } else {
-                this.setState({ draggingElement: element });
+                const element = newElement(this.state.elementType, x, y);
+
+                if (this.state.elementType === 'text') {
+                  const text = prompt("What text do you want?");
+                  if (text === null) {
+                    return;
+                  }
+                  element.text = text;
+                  element.font = "20px Virgil";
+                  // context의 원래 font 저장
+                  const font = context.font;
+                  // element font로 context font 변경
+                  context.font = element.font;
+                  element.measure = context.measureText(element.text);
+                  // context의 원래 font로 변경
+                  context.font = font;
+                  const height = element.measure.actualBoundingBoxAscent + element.measure.actualBoundingBoxDescent;
+                  // text 가운데 정렬
+                  element.x -= element.measure.width / 2;
+                  element.y -= element.measure.actualBoundingBoxAscent;
+                  element.width = element.measure.width;
+                  element.height = height
+                }
+                generateDraw(element);
+                elements.push(element);
+
+                if (this.state.elementType === 'text') {
+                  // text element는 드래그 요소가 아님
+                  this.setState({ 
+                    draggingElement: null,
+                    elementType: "selection"
+                  });
+                  // 생성된 text가 선택되도록 구현
+                  element.isSelected = true;
+                } else {
+                  this.setState({ draggingElement: element });
+                }
               }
+
 
               // lastX, lastY의 초깃값은 마우스 클릭의 시작점 좌표로 설정
               let lastX = x;
@@ -444,7 +462,7 @@ class App extends React.Component {
                     const x = e.clientX - e.target.offsetLeft;
                     const y = e.clientY - e.target.offsetTop;
                     // 선택된 element들을 드래그한 거리만큼 이동
-                    elements.forEach(element => {
+                    selectedElements.forEach(element => {
                       element.x += x - lastX;
                       element.y += y - lastY;
                     });
@@ -483,15 +501,14 @@ class App extends React.Component {
                 const draggingElement = this.state.draggingElement;
                 if (!draggingElement) return;
 
+                // element 선택하는 경우
                 if (this.state.elementType === 'selection') {
                   // 드래그로 element를 이동하는 경우
                   if (isDraggingElements) {
                     isDraggingElements = false;
-                  } else {
-                    setSelection(draggingElement);
                   }
-                  // selection element 드래그를 멈췄을 때, elements에서 제거
-                  elements.pop();
+                  // draggingElement는 클릭한 element
+                  setSelection(draggingElement);
                 } else {
                   // 마지막으로 생성한 element를 선택
                   draggingElement.isSelected = true;
