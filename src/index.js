@@ -390,6 +390,7 @@ class App extends React.Component {
             onMouseDown={e => {
               const x = e.clientX - e.target.offsetLeft;
               const y = e.clientY - e.target.offsetTop;
+              const element = newElement(this.state.elementType, x, y);
 
               // 마우스 클릭 위치가 선택된 element내부인지 여부
               // 드래그로 element를 옮기려고 하는 경우인지 여부
@@ -409,45 +410,45 @@ class App extends React.Component {
                 if (isDraggingElements) {
                   document.documentElement.style.cursor = "move";
                 }
-              } else {
-                const element = newElement(this.state.elementType, x, y);
+              } 
 
-                if (this.state.elementType === 'text') {
-                  const text = prompt("What text do you want?");
-                  if (text === null) {
-                    return;
-                  }
-                  element.text = text;
-                  element.font = "20px Virgil";
-                  // context의 원래 font 저장
-                  const font = context.font;
-                  // element font로 context font 변경
-                  context.font = element.font;
-                  element.measure = context.measureText(element.text);
-                  // context의 원래 font로 변경
-                  context.font = font;
-                  const height = element.measure.actualBoundingBoxAscent + element.measure.actualBoundingBoxDescent;
-                  // text 가운데 정렬
-                  element.x -= element.measure.width / 2;
-                  element.y -= element.measure.actualBoundingBoxAscent;
-                  element.width = element.measure.width;
-                  element.height = height
+              if (this.state.elementType === 'text') {
+                const text = prompt("What text do you want?");
+                if (text === null) {
+                  return;
                 }
-                generateDraw(element);
-                elements.push(element);
-
-                if (this.state.elementType === 'text') {
-                  // text element는 드래그 요소가 아님
-                  this.setState({ 
-                    draggingElement: null,
-                    elementType: "selection"
-                  });
-                  // 생성된 text가 선택되도록 구현
-                  element.isSelected = true;
-                } else {
-                  this.setState({ draggingElement: element });
-                }
+                element.text = text;
+                element.font = "20px Virgil";
+                // context의 원래 font 저장
+                const font = context.font;
+                // element font로 context font 변경
+                context.font = element.font;
+                element.measure = context.measureText(element.text);
+                // context의 원래 font로 변경
+                context.font = font;
+                const height = element.measure.actualBoundingBoxAscent + element.measure.actualBoundingBoxDescent;
+                // text 가운데 정렬
+                element.x -= element.measure.width / 2;
+                element.y -= element.measure.actualBoundingBoxAscent;
+                element.width = element.measure.width;
+                element.height = height
               }
+              generateDraw(element);
+              elements.push(element);
+
+              if (this.state.elementType === 'text') {
+                // text element는 드래그 요소가 아님
+                this.setState({ 
+                  draggingElement: null,
+                  elementType: "selection"
+                });
+                // 생성된 text가 선택되도록 구현
+                element.isSelected = true;
+              } else {
+                // 생성할 element를 draggingElement로 설정
+                this.setState({ draggingElement: element });
+              }
+              
 
 
               // lastX, lastY의 초깃값은 마우스 클릭의 시작점 좌표로 설정
@@ -494,19 +495,26 @@ class App extends React.Component {
               }
 
               const onMouseUp = (e) => {
+                const { draggingElement, elementType } = this.state;
+
                 window.removeEventListener("mousemove", onMouseMove);
                 window.removeEventListener("mouseup", onMouseUp);
                 document.documentElement.style.cursor = cursorStyle;
 
-                const draggingElement = this.state.draggingElement;
-                if (!draggingElement) return;
+                // 선택된 element가 없다면, select element 초기화
+                if (!draggingElement) {
+                  clearSelection();
+                  drawScene();
+                  return
+                }
 
                 // element 선택하는 경우
-                if (this.state.elementType === 'selection') {
+                if (elementType === 'selection') {
                   // 드래그로 element를 이동하는 경우
                   if (isDraggingElements) {
                     isDraggingElements = false;
                   }
+                  elements.pop();
                   // draggingElement는 클릭한 element
                   setSelection(draggingElement);
                 } else {
