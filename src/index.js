@@ -398,10 +398,19 @@ class App extends React.Component {
               const cursorStyle = document.documentElement.style.cursor;
               if (this.state.elementType === 'selection') {
                 // 마우스의 클릭 위치가 element의 내부에 있는 element들중 첫번째 element
-                const selectedElement = elements.find(isInsideAnElement(x, y));
+                const selectedElement = elements.find(element => {
+                  const isSelected = isInsideAnElement(x, y)(element);
+                  if (isSelected) {
+                    element.isSelected = true;
+                  }
+                  return isSelected;
+                });
 
                 if (selectedElement) {
                   this.setState({ draggingElement: selectedElement});
+                } else {
+                  // selected element 영역 밖을 클릭했을때
+                  clearSelection();
                 }
 
                 isDraggingElements = elements.some(element => element.isSelected);
@@ -489,6 +498,8 @@ class App extends React.Component {
                 generateDraw(draggingElement);
 
                 if (this.state.elementType === 'selection') {
+                  // draggingElement는 selection element
+                  // selection element에 element들이 들어가면 element.isSelected를 true로 변경
                   setSelection(draggingElement);
                 }
                 drawScene();
@@ -514,9 +525,8 @@ class App extends React.Component {
                   if (isDraggingElements) {
                     isDraggingElements = false;
                   }
+                  // select element 제거
                   elements.pop();
-                  // draggingElement는 클릭한 element
-                  setSelection(draggingElement);
                 } else {
                   // 마지막으로 생성한 element를 선택
                   draggingElement.isSelected = true;
