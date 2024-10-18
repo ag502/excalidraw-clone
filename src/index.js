@@ -64,10 +64,11 @@ function newElement(type, x, y, width = 0, height = 0) {
   return element;
 }
 
-function exportAsPNG({ background, visibleOnly, padding = 10 }) {
+function exportAsPNG({ exportBackground, exportVisibleOnly, exportPadding = 10 }) {
   clearSelection();
   drawScene();
 
+  // calculate visible-area coords
   let subCanvasX1 = Infinity;
   let subCanvasX2 = 0;
   let subCanvasY1 = Infinity;
@@ -81,41 +82,39 @@ function exportAsPNG({ background, visibleOnly, padding = 10 }) {
     subCanvasY2 = Math.max(subCanvasY2, getElementAbsoluteY2(element));
   });
 
-  let targetCanvas = canvas;
+  // create temporary canvas from which we'll export
+  const tempCanvas = document.createElement("canvas");
+  const tempCanvasCtx = tempCanvas.getContext("2d");
+  tempCanvas.style.display = "none";
+  document.body.appendChild(tempCanvas);
+  
+  tempCanvas.width = exportVisibleOnly ? subCanvasX2 - subCanvasX1 + exportPadding * 2 : canvas.width;
+  tempCanvas.height = exportVisibleOnly ? subCanvasY2 - subCanvasY1 + exportPadding * 2 : canvas.height;
 
-  if (visibleOnly) {
-    targetCanvas = document.createElement("canvas");
-    targetCanvas.style.display = "none";
-    document.body.appendChild(targetCanvas);
-    targetCanvas.width = subCanvasX2 - subCanvasX1 + padding * 2;
-    targetCanvas.height = subCanvasY2 - subCanvasY1 + padding * 2;
-
-    const targetCanvasContext = targetCanvas.getContext("2d");
-
-    if (background) {
-      targetCanvasContext.fillStyle = "#FFF";
-      targetCanvasContext.fillRect(0, 0, canvas.width, canvas.height);
-    }
-
-    targetCanvasContext.drawImage(
-      canvas,
-      subCanvasX1 - padding, // x
-      subCanvasY1 - padding, // y
-      subCanvasX2 - subCanvasX1 + padding * 2, // width
-      subCanvasY2 - subCanvasY1 + padding * 2, // height
-      0,
-      0,
-      targetCanvas.width,
-      targetCanvas.height
-    );
-
-    const link = document.createElement("a");
-    link.setAttribute('download', 'excalidrow.png');
-    link.setAttribute('href', targetCanvas.toDataURL("image/png"));
-    link.click();
-    link.remove();
-    if ( targetCanvas !== canvas ) targetCanvas.remove();
+  if (exportBackground) {
+    tempCanvasCtx.fillStyle = "#FFF";
+    tempCanvasCtx.fillRect(0, 0, canvas.width, canvas.height);
   }
+
+  // copy our original canvas onto the temp canvas
+  tempCanvasCtx.drawImage(
+    canvas, // source
+    exportVisibleOnly ? subCanvasX1 - exportPadding : 0, // sx
+    exportVisibleOnly ? subCanvasY1 - exportPadding : 0, // sy
+    exportVisibleOnly ? subCanvasX2 - subCanvasX1 + exportPadding * 2 : canvas.width, // source width
+    exportVisibleOnly ? subCanvasY2 - subCanvasY1 + exportPadding * 2 : canvas.height, // source height,
+    0, // dx
+    0, // dy
+    exportVisibleOnly ? tempCanvas.width : canvas.width, // destination width
+    exportVisibleOnly ? tempCanvas.height : canvas.height // destination height
+  )
+
+  const link = document.createElement("a");
+  link.setAttribute('download', 'excalidrow.png');
+  link.setAttribute('href', tempCanvas.toDataURL("image/png"));
+  link.click();
+  link.remove();
+  if ( tempCanvasCtx !== canvas ) tempCanvas.remove();
 }
 
 const generator = rough.generator();
@@ -346,9 +345,9 @@ class App extends React.Component {
         <div className="exportWrapper">
           <button onClick={() => {
             exportAsPNG({
-              background: this.state.exportBackground,
-              visibleOnly: this.state.exportVisibleOnly,
-              padding: this.state.exportPadding
+              exportBackground: this.state.exportBackground,
+              exportVisibleOnly: this.state.exportVisibleOnly,
+              exportPadding: this.state.exportPadding
             })
           }}>Export to png</button>
           <label>
