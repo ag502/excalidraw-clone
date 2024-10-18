@@ -1,70 +1,88 @@
 /* eslint-disable no-undef */
 import React from "react";
 import ReactDOM from "react-dom";
-import rough from "roughjs/dist/rough.umd.js";
+import rough from "roughjs/bin/wrappers/rough";
+import { RoughCanvas } from "roughjs/bin/canvas";
 
 import "./styles.css";
 
-const elements = [];
+type ExcaliburElement = ReturnType<typeof newElement>;
+type ExcaliburTextElement = ExcaliburElement & {
+  type: "text";
+  font: string;
+  text: string;
+  measure: TextMetrics;
+};
+
+const elements: ExcaliburElement[] = [];
 
 /**
- * @param {*} x 
- * @param {*} y 
+ * @param {*} x
+ * @param {*} y
  * @returns
- * 
- * @description x, y 좌표가 element 내부인지 판단하는 함수 
+ *
+ * @description x, y 좌표가 element 내부인지 판단하는 함수
  */
-function isInsideAnElement(x, y) {
-  return (element) => {
+function isInsideAnElement(x: number, y: number) {
+  return (element: ExcaliburElement) => {
     const x1 = getElementAbsoluteX1(element);
     const x2 = getElementAbsoluteX2(element);
     const y1 = getElementAbsoluteY1(element);
     const y2 = getElementAbsoluteY2(element);
 
-    return (x1 <= x && x <= x2) && (y1 <= y && y <= y2);
-  }
+    return x1 <= x && x <= x2 && y1 <= y && y <= y2;
+  };
 }
 
 /**
- * @param {*} x1 
- * @param {*} y1 
- * @param {*} x2 
- * @param {*} y2 
- * @param {*} angle 
- * @returns 
- * 
+ * @param {*} x1
+ * @param {*} y1
+ * @param {*} x2
+ * @param {*} y2
+ * @param {*} angle
+ * @returns
+ *
  * @description `x2`, `y2` 좌표를 축으로 `x1`, `y1` 좌표를 `angle` 만큼 회전시키는 함수
  */
-function rotate(x1, y1, x2, y2, angle) {
+function rotate(x1: number, y1: number, x2: number, y2: number, angle: number) {
   // 𝑎′𝑥=(𝑎𝑥−𝑐𝑥)cos𝜃−(𝑎𝑦−𝑐𝑦)sin𝜃+𝑐𝑥
   // 𝑎′𝑦=(𝑎𝑥−𝑐𝑥)sin𝜃+(𝑎𝑦−𝑐𝑦)cos𝜃+𝑐𝑦.
   // https://math.stackexchange.com/questions/2204520/how-do-i-rotate-a-line-segment-in-a-specific-point-on-the-line
   return [
     (x1 - x2) * Math.cos(angle) - (y1 - y2) * Math.sin(angle) + x2,
     (x1 - x2) * Math.sin(angle) + (y1 - y2) * Math.cos(angle) + y2
-  ]
+  ];
 }
 
 /**
- * @param {*} type 
+ * @param {*} type
  * @param {number} x 도형이 시작되는 x 좌표
  * @param {number} y 도형이 시작되는 y 좌표
- * 
+ *
  * @description `element`의 타입, 시작되는 좌표, 넓이, 높이를 반환하는 함수.
  */
-function newElement(type, x, y, width = 0, height = 0) {
+function newElement(type: string, x: number, y: number, width = 0, height = 0) {
   const element = {
     type,
     x,
     y,
     width,
     height,
-    isSelected: false
-  }
+    isSelected: false,
+    draw(rc: RoughCanvas, context: CanvasRenderingContext2D) {}
+  };
   return element;
 }
 
-function exportAsPNG({ exportBackground, exportVisibleOnly, exportPadding = 10 }) {
+function exportAsPNG({
+  exportBackground,
+  exportVisibleOnly,
+  exportPadding = 10
+}: {
+  exportBackground: boolean;
+  exportVisibleOnly: boolean;
+  exportPadding?: number;
+}) {
   if (!elements.length) return window.alert("Cannot export empty canvas.");
 
   clearSelection();
@@ -86,12 +104,16 @@ function exportAsPNG({ exportBackground, exportVisibleOnly, exportPadding = 10 }
 
   // create temporary canvas from which we'll export
   const tempCanvas = document.createElement("canvas");
-  const tempCanvasCtx = tempCanvas.getContext("2d");
+  const tempCanvasCtx = tempCanvas.getContext("2d")!;
   tempCanvas.style.display = "none";
   document.body.appendChild(tempCanvas);
-  
-  tempCanvas.width = exportVisibleOnly ? subCanvasX2 - subCanvasX1 + exportPadding * 2 : canvas.width;
-  tempCanvas.height = exportVisibleOnly ? subCanvasY2 - subCanvasY1 + exportPadding * 2 : canvas.height;
+
+  tempCanvas.width = exportVisibleOnly
+    ? subCanvasX2 - subCanvasX1 + exportPadding * 2
+    : canvas.width;
+  tempCanvas.height = exportVisibleOnly
+    ? subCanvasY2 - subCanvasY1 + exportPadding * 2
+    : canvas.height;
 
   if (exportBackground) {
     tempCanvasCtx.fillStyle = "#FFF";
@@ -103,29 +125,39 @@ function exportAsPNG({ exportBackground, exportVisibleOnly, exportPadding = 10 }
     canvas, // source
     exportVisibleOnly ? subCanvasX1 - exportPadding : 0, // sx
     exportVisibleOnly ? subCanvasY1 - exportPadding : 0, // sy
-    exportVisibleOnly ? subCanvasX2 - subCanvasX1 + exportPadding * 2 : canvas.width, // source width
-    exportVisibleOnly ? subCanvasY2 - subCanvasY1 + exportPadding * 2 : canvas.height, // source height,
+    exportVisibleOnly
+      ? subCanvasX2 - subCanvasX1 + exportPadding * 2
+      : canvas.width, // source width
+    exportVisibleOnly
+      ? subCanvasY2 - subCanvasY1 + exportPadding * 2
+      : canvas.height, // source height,
     0, // dx
     0, // dy
     exportVisibleOnly ? tempCanvas.width : canvas.width, // destination width
     exportVisibleOnly ? tempCanvas.height : canvas.height // destination height
-  )
+  );
 
   const link = document.createElement("a");
-  link.setAttribute('download', 'excalidrow.png');
-  link.setAttribute('href', tempCanvas.toDataURL("image/png"));
+  link.setAttribute("download", "excalidrow.png");
+  link.setAttribute("href", tempCanvas.toDataURL("image/png"));
   link.click();
   link.remove();
-  if ( tempCanvasCtx !== canvas ) tempCanvas.remove();
+  if (tempCanvas !== canvas) tempCanvas.remove();
 }
 
-const generator = rough.generator();
+const generator = rough.generator(null, null as any);
+
+function isTextElement(
+  element: ExcaliburElement
+): element is ExcaliburTextElement {
+  return element.type === "text";
+}
 
 /**
- * @param {newElement} element 
+ * @param {newElement} element
  * @description `newElement` 에서 만들어진 `element` 객체에 `element`를 그리는 `draw`함수를 추가하는 함수
  */
-function generateDraw(element) {
+function generateDraw(element: ExcaliburElement) {
   if (element.type === "selection") {
     // rc - rough canvas
     // context - canvas rendering context
@@ -146,7 +178,7 @@ function generateDraw(element) {
       rc.draw(shape);
       // 그린후, context의 상태로 복원
       context.translate(-element.x, -element.y);
-    }
+    };
   } else if (element.type === "ellipse") {
     const shape = generator.ellipse(
       element.width / 2,
@@ -159,7 +191,7 @@ function generateDraw(element) {
       rc.draw(shape);
       context.translate(-element.x, -element.y);
     };
-  } else if (element.type === 'arrow') {
+  } else if (element.type === "arrow") {
     const x1 = 0;
     const y1 = 0;
     const x2 = element.width;
@@ -192,8 +224,8 @@ function generateDraw(element) {
       context.translate(element.x, element.y);
       shapes.forEach(shape => rc.draw(shape));
       context.translate(-element.x, -element.y);
-    }
-  } else if (element.type === 'text') {
+    };
+  } else if (isTextElement(element)) {
     element.draw = (rc, context) => {
       const font = context.font;
       context.font = element.font;
@@ -203,7 +235,7 @@ function generateDraw(element) {
         element.y + element.measure.actualBoundingBoxAscent
       );
       context.font = font;
-    }
+    };
   } else {
     throw new Error(`Unimplemented type ${element.type}`);
   }
@@ -215,23 +247,23 @@ function generateDraw(element) {
 // is pointing left or right.
 // x1, y1은 element의 시작점, x2, y2는 element의 끝점
 /**
- * @param {newElement} element 
- * @returns 
+ * @param {newElement} element
+ * @returns
  * @description width가 음수일 경우, 시작점에서 width를 더해 시작점 좌표를 보정
  */
-function getElementAbsoluteX1(element) {
+function getElementAbsoluteX1(element: ExcaliburElement) {
   return element.width >= 0 ? element.x : element.x + element.width;
 }
 
-function getElementAbsoluteX2(element) {
+function getElementAbsoluteX2(element: ExcaliburElement) {
   return element.width >= 0 ? element.x + element.width : element.x;
 }
 
-function getElementAbsoluteY1(element) {
+function getElementAbsoluteY1(element: ExcaliburElement) {
   return element.height >= 0 ? element.y : element.y + element.height;
 }
 
-function getElementAbsoluteY2(element) {
+function getElementAbsoluteY2(element: ExcaliburElement) {
   return element.height >= 0 ? element.y + element.height : element.y;
 }
 
@@ -239,7 +271,7 @@ function getElementAbsoluteY2(element) {
  * @param {newElement} selection selectionElement
  * @description selection element에 elements 배열의 원소가 포함되는지 파악하는 함수. 포함된다면 isSelected를 true로 변환
  */
-function setSelection(selection) {
+function setSelection(selection: ExcaliburElement) {
   // selection element의 시작점과 끝점의 음수 넓이, 높이를 보정
   const selectionX1 = getElementAbsoluteX1(selection);
   const selectionX2 = getElementAbsoluteX2(selection);
@@ -253,22 +285,32 @@ function setSelection(selection) {
     const elementY1 = getElementAbsoluteY1(element);
     const elementY2 = getElementAbsoluteY2(element);
 
-    element.isSelected = 
-      element.type !== 'selection' &&
+    element.isSelected =
+      element.type !== "selection" &&
       selectionX1 <= elementX1 &&
       selectionY1 <= elementY1 &&
       selectionX2 >= elementX2 &&
-      selectionY2 >= elementY2
-  })
+      selectionY2 >= elementY2;
+  });
 }
 
 function clearSelection() {
   elements.forEach(element => {
     element.isSelected = false;
-  })
+  });
 }
 
-function ElementOption({ type, elementType, onElementTypeChange, children }) {
+function ElementOption({
+  type,
+  elementType,
+  onElementTypeChange,
+  children
+}: {
+  type: string;
+  elementType: string;
+  onElementTypeChange: (type: string) => void;
+  children: React.ReactNode;
+}): React.ReactNode {
   return (
     <label>
       <input
@@ -285,119 +327,160 @@ function ElementOption({ type, elementType, onElementTypeChange, children }) {
   );
 }
 
+type AppState = {
+  draggingElement: ExcaliburElement | null;
+  elementType: string;
+  exportBackground: boolean;
+  exportVisibleOnly: boolean;
+  exportPadding: number;
+};
+
 class App extends React.Component {
-  componentDidMount() {
-    this.onKeyDown = (event) => {
-      if (event.key === 'Backspace' && event.target.nodeName !== 'INPUT') {
-        // Backspace를 누르면 선택된 element들을 뒤에서 부터 모두 제거
-        for (let i = elements.length - 1; i >= 0; i--) {
-          if (elements[i].isSelected) {
-            elements.splice(i, 1);
-          }
-        }
-        drawScene();
-        event.preventDefault();
-        // 방향키로 선택된 element들을 이동
-      } else if (
-        event.key === 'ArrowLeft' ||
-        event.key === 'ArrowRight' ||
-        event.key === 'ArrowUp' ||
-        event.key === "ArrowDown"
-      ) {
-        // shift key를 같이 누르면 step을 5로 설정
-        const step = event.shiftKey ? 5 : 1;
-        elements.forEach(element => {
-          if (element.isSelected) {
-            if (event.key === 'ArrowLeft') element.x -= step;
-            else if (event.key === 'ArrowRight') element.x += step;
-            else if (event.key === 'ArrowUp') element.y -= step;
-            else if (event.key === 'ArrowDown') element.y += step;
-          }
-        })
-        drawScene();
-        // 키보드의 원래 동작을 막기위해 호출 (ex-키보드 아래방향키를 누를때, 스크롤 이동 방지)
-        event.preventDefault();
-      }
-    }
+  public componentDidMount() {
     document.addEventListener("keydown", this.onKeyDown);
   }
-
-  componentWillUnmount() {
+  public componentWillUnmount() {
     document.removeEventListener("keydown", this.onKeyDown);
   }
 
-  constructor() {
-    super();
-    this.state = {
-      draggingElement: null,
-      elementType: "selection",
-      exportBackground: false,
-      exportVisibleOnly: true,
-      exportPadding: 10
+  public state: AppState = {
+    draggingElement: null,
+    elementType: "selection",
+    exportBackground: false,
+    exportVisibleOnly: true,
+    exportPadding: 10
+  };
+
+  private onKeyDown = (event: KeyboardEvent) => {
+    if (
+      event.key === "Backspace" &&
+      (event.target as HTMLElement)?.nodeName !== "INPUT"
+    ) {
+      // Backspace를 누르면 선택된 element들을 뒤에서 부터 모두 제거
+      for (let i = elements.length - 1; i >= 0; i--) {
+        if (elements[i].isSelected) {
+          elements.splice(i, 1);
+        }
+      }
+      drawScene();
+      event.preventDefault();
+      // 방향키로 선택된 element들을 이동
+    } else if (
+      event.key === "ArrowLeft" ||
+      event.key === "ArrowRight" ||
+      event.key === "ArrowUp" ||
+      event.key === "ArrowDown"
+    ) {
+      // shift key를 같이 누르면 step을 5로 설정
+      const step = event.shiftKey ? 5 : 1;
+      elements.forEach(element => {
+        if (element.isSelected) {
+          if (event.key === "ArrowLeft") element.x -= step;
+          else if (event.key === "ArrowRight") element.x += step;
+          else if (event.key === "ArrowUp") element.y -= step;
+          else if (event.key === "ArrowDown") element.y += step;
+        }
+      });
+      drawScene();
+      // 키보드의 원래 동작을 막기위해 호출 (ex-키보드 아래방향키를 누를때, 스크롤 이동 방지)
+      event.preventDefault();
     }
+  };
+
+  setElementType(type: string) {
+    this.setState({ elementType: type });
   }
 
-  setElementType(type) {
-    this.setState({ elementType: type})
+  private renderOption({
+    type,
+    children
+  }: {
+    type: string;
+    children: React.ReactNode;
+  }) {
+    return (
+      <label>
+        <input
+          type="radio"
+          checked={this.state.elementType === type}
+          onChange={() => {
+            this.setState({ elementType: type });
+            clearSelection();
+            drawScene();
+          }}
+        />
+        {children}
+      </label>
+    );
   }
 
   render() {
     return (
       <>
         <div className="exportWrapper">
-          <button onClick={() => {
-            exportAsPNG({
-              exportBackground: this.state.exportBackground,
-              exportVisibleOnly: this.state.exportVisibleOnly,
-              exportPadding: this.state.exportPadding
-            })
-          }}>Export to png</button>
+          <button
+            onClick={() => {
+              exportAsPNG({
+                exportBackground: this.state.exportBackground,
+                exportVisibleOnly: this.state.exportVisibleOnly,
+                exportPadding: this.state.exportPadding
+              });
+            }}
+          >
+            Export to png
+          </button>
           <label>
-            <input type="checkbox"
+            <input
+              type="checkbox"
               checked={this.state.exportBackground}
               onChange={e => {
-                this.setState({ exportBackground: e.target.checked })
+                this.setState({ exportBackground: e.target.checked });
               }}
-            /> background
+            />{" "}
+            background
           </label>
           <label>
-            <input type="checkbox"
+            <input
+              type="checkbox"
               checked={this.state.exportVisibleOnly}
               onChange={e => {
-                this.setState({ exportVisibleOnly: e.target.checked })
+                this.setState({ exportVisibleOnly: e.target.checked });
               }}
             />
             visible area only
           </label>
           (padding:
-            <input type="number" value={this.state.exportPadding}
-              onChange={e => {
-                this.setState({ exportPadding: e.target.value });
-              }}
-              disabled={!this.state.exportVisibleOnly}/>
+          <input
+            type="number"
+            value={this.state.exportPadding}
+            onChange={e => {
+              this.setState({ exportPadding: e.target.value });
+            }}
+            disabled={!this.state.exportVisibleOnly}
+          />
           px)
         </div>
         <div>
-          <ElementOption type="rectangle" elementType={this.state.elementType} onElementTypeChange={this.setElementType.bind(this)}>Rectangle</ElementOption>
-          <ElementOption type="ellipse" elementType={this.state.elementType} onElementTypeChange={this.setElementType.bind(this)}>Ellipse</ElementOption>
-          <ElementOption type="arrow" elementType={this.state.elementType} onElementTypeChange={this.setElementType.bind(this)}>Arrow</ElementOption>
-          <ElementOption type="text" elementType={this.state.elementType} onElementTypeChange={this.setElementType.bind(this)}>Text</ElementOption>
-          <ElementOption type="selection" elementType={this.state.elementType} onElementTypeChange={this.setElementType.bind(this)}>Selection</ElementOption>
+          {this.renderOption({ type: "rectangle", children: "Rectangle" })}
+          {this.renderOption({ type: "ellipse", children: "Ellipse" })}
+          {this.renderOption({ type: "arrow", children: "Arrow" })}
+          {this.renderOption({ type: "text", children: "Text" })}
+          {this.renderOption({ type: "selection", children: "Selection" })}
 
-          <canvas 
+          <canvas
             id="canvas"
             width={window.innerWidth}
             height={window.innerHeight}
             onMouseDown={e => {
-              const x = e.clientX - e.target.offsetLeft;
-              const y = e.clientY - e.target.offsetTop;
+              const x = e.clientX - (e.target as HTMLElement).offsetLeft;
+              const y = e.clientY - (e.target as HTMLElement).offsetTop;
               const element = newElement(this.state.elementType, x, y);
 
               // 마우스 클릭 위치가 선택된 element내부인지 여부
               // 드래그로 element를 옮기려고 하는 경우인지 여부
               let isDraggingElements = false;
               const cursorStyle = document.documentElement.style.cursor;
-              if (this.state.elementType === 'selection') {
+              if (this.state.elementType === "selection") {
                 // 마우스의 클릭 위치가 element의 내부에 있는 element들중 첫번째 element
                 const selectedElement = elements.find(element => {
                   const isSelected = isInsideAnElement(x, y)(element);
@@ -408,21 +491,23 @@ class App extends React.Component {
                 });
 
                 if (selectedElement) {
-                  this.setState({ draggingElement: selectedElement});
+                  this.setState({ draggingElement: selectedElement });
                 } else {
                   // selected element 영역 밖을 클릭했을때
                   clearSelection();
                 }
 
-                isDraggingElements = elements.some(element => element.isSelected);
+                isDraggingElements = elements.some(
+                  element => element.isSelected
+                );
 
                 // 선택된 element의 내부라면 cursor 모양 변경
                 if (isDraggingElements) {
                   document.documentElement.style.cursor = "move";
                 }
-              } 
+              }
 
-              if (this.state.elementType === 'text') {
+              if (isTextElement(element)) {
                 const text = prompt("What text do you want?");
                 if (text === null) {
                   return;
@@ -436,19 +521,21 @@ class App extends React.Component {
                 element.measure = context.measureText(element.text);
                 // context의 원래 font로 변경
                 context.font = font;
-                const height = element.measure.actualBoundingBoxAscent + element.measure.actualBoundingBoxDescent;
+                const height =
+                  element.measure.actualBoundingBoxAscent +
+                  element.measure.actualBoundingBoxDescent;
                 // text 가운데 정렬
                 element.x -= element.measure.width / 2;
                 element.y -= element.measure.actualBoundingBoxAscent;
                 element.width = element.measure.width;
-                element.height = height
+                element.height = height;
               }
               generateDraw(element);
               elements.push(element);
 
-              if (this.state.elementType === 'text') {
+              if (this.state.elementType === "text") {
                 // text element는 드래그 요소가 아님
-                this.setState({ 
+                this.setState({
                   draggingElement: null,
                   elementType: "selection"
                 });
@@ -458,20 +545,24 @@ class App extends React.Component {
                 // 생성할 element를 draggingElement로 설정
                 this.setState({ draggingElement: element });
               }
-              
-
 
               // lastX, lastY의 초깃값은 마우스 클릭의 시작점 좌표로 설정
               let lastX = x;
               let lastY = y;
 
-              const onMouseMove = (e) => {
+              const onMouseMove = (e: MouseEvent) => {
+                const target = e.target;
+                if (!(target instanceof HTMLElement)) {
+                  return;
+                }
                 // 도형을 드래그로 이동하려고 하는 경우
                 if (isDraggingElements) {
-                  const selectedElements = elements.filter(element => element.isSelected);
+                  const selectedElements = elements.filter(
+                    element => element.isSelected
+                  );
                   if (selectedElements.length) {
-                    const x = e.clientX - e.target.offsetLeft;
-                    const y = e.clientY - e.target.offsetTop;
+                    const x = e.clientX - target.offsetLeft;
+                    const y = e.clientY - target.offsetTop;
                     // 선택된 element들을 드래그한 거리만큼 이동
                     selectedElements.forEach(element => {
                       element.x += x - lastX;
@@ -489,8 +580,8 @@ class App extends React.Component {
                 // e.clientX - e.target.offsetLeft는 현재 마우스 포인터의 x 좌표
                 // draggingElement.x 는 현재 생성중인 element의 시작 x 좌표
                 // 현재 마우스 포인터 위치에서 element의 시작 좌표를 빼면 넓이가 나옴
-                let width = e.clientX - e.target.offsetLeft - draggingElement.x;
-                let height = e.clientY - e.target.offsetTop - draggingElement.y;
+                let width = e.clientX - target.offsetLeft - draggingElement.x;
+                let height = e.clientY - target.offsetTop - draggingElement.y;
                 draggingElement.width = width;
                 // Make a perfect square or circle when shift is enabled
                 // shift를 누른 상태에서 드래그한다면 정비율로 확대되어야 함
@@ -498,15 +589,15 @@ class App extends React.Component {
                 // 생성할 element의 넓이와 높이값 업데이트를 위한 호출
                 generateDraw(draggingElement);
 
-                if (this.state.elementType === 'selection') {
+                if (this.state.elementType === "selection") {
                   // draggingElement는 selection element
                   // selection element에 element들이 들어가면 element.isSelected를 true로 변경
                   setSelection(draggingElement);
                 }
                 drawScene();
-              }
+              };
 
-              const onMouseUp = (e) => {
+              const onMouseUp = (e: MouseEvent) => {
                 const { draggingElement, elementType } = this.state;
 
                 window.removeEventListener("mousemove", onMouseMove);
@@ -517,11 +608,11 @@ class App extends React.Component {
                 if (!draggingElement) {
                   clearSelection();
                   drawScene();
-                  return
+                  return;
                 }
 
                 // element 선택하는 경우
-                if (elementType === 'selection') {
+                if (elementType === "selection") {
                   // 드래그로 element를 이동하는 경우
                   if (isDraggingElements) {
                     isDraggingElements = false;
@@ -536,9 +627,9 @@ class App extends React.Component {
                 this.setState({
                   draggingElement: null,
                   elementType: "selection"
-                })
+                });
                 drawScene();
-              }
+              };
 
               window.addEventListener("mousemove", onMouseMove);
               window.addEventListener("mouseup", onMouseUp);
@@ -548,17 +639,16 @@ class App extends React.Component {
           />
         </div>
       </>
-    )
+    );
   }
 }
 
 const rootElement = document.getElementById("root");
 ReactDOM.render(<App />, rootElement);
 
-
-const canvas = document.getElementById("canvas");
+const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 const rc = rough.canvas(canvas);
-const context = canvas.getContext("2d");
+const context = canvas.getContext("2d")!;
 
 // Big hack to ensure that all the 1px lines are drawn at 1px instead of 2px
 // https://stackoverflow.com/questions/13879322/drawing-a-1px-thick-line-in-canvas-creates-a-2px-thick-line/13879402#comment90766599_13879402
@@ -575,7 +665,7 @@ function drawScene() {
     // element가 선택되었을때, 생성되는 테두리
     if (element.isSelected) {
       const margin = 4;
-      
+
       const lineDash = context.getLineDash();
 
       // 없어도 되는게 아닐지..?
@@ -590,8 +680,8 @@ function drawScene() {
         elementY1 - margin,
         elementX2 - elementX1 + margin * 2,
         elementY2 - elementY1 + margin * 2
-      )
+      );
       context.setLineDash(lineDash);
     }
-  })
+  });
 }
