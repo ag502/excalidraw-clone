@@ -65,6 +65,8 @@ function newElement(type, x, y, width = 0, height = 0) {
 }
 
 function exportAsPNG({ exportBackground, exportVisibleOnly, exportPadding = 10 }) {
+  if (!elements.length) return window.alert("Cannot export empty canvas.");
+
   clearSelection();
   drawScene();
 
