@@ -354,7 +354,7 @@ class App extends React.Component {
   private onKeyDown = (event: KeyboardEvent) => {
     if (
       event.key === "Backspace" &&
-      (event.target as HTMLElement)?.nodeName !== "INPUT"
+      (event.target as HTMLElement).nodeName !== "INPUT"
     ) {
       // Backspace를 누르면 선택된 element들을 뒤에서 부터 모두 제거
       for (let i = elements.length - 1; i >= 0; i--) {
