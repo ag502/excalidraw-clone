@@ -11,7 +11,7 @@ type ExcaliburTextElement = ExcaliburElement & {
   type: "text";
   font: string;
   text: string;
-  measure: TextMetrics;
+  actualBoundingBoxAscent: number;
 };
 
 const elements: ExcaliburElement[] = [];
@@ -232,7 +232,7 @@ function generateDraw(element: ExcaliburElement) {
       context.fillText(
         element.text,
         element.x,
-        element.y + element.measure.actualBoundingBoxAscent
+        element.y + element.actualBoundingBoxAscent
       );
       context.font = font;
     };
@@ -300,6 +300,15 @@ function clearSelection() {
   });
 }
 
+/** elements의 뒤쪽부터 제거 */
+function deleteSelectedElements() {
+  for (let i = elements.length - 1; i >= 0; i--) {
+    if (elements[i].isSelected) {
+      elements.splice(i, 1);
+    }
+  }
+}
+
 function ElementOption({
   type,
   elementType,
@@ -356,12 +365,7 @@ class App extends React.Component {
       event.key === "Backspace" &&
       (event.target as HTMLElement).nodeName !== "INPUT"
     ) {
-      // Backspace를 누르면 선택된 element들을 뒤에서 부터 모두 제거
-      for (let i = elements.length - 1; i >= 0; i--) {
-        if (elements[i].isSelected) {
-          elements.splice(i, 1);
-        }
-      }
+      deleteSelectedElements();
       drawScene();
       event.preventDefault();
       // 방향키로 선택된 element들을 이동
@@ -460,7 +464,48 @@ class App extends React.Component {
           />
           px)
         </div>
-        <div>
+        <div
+          onCut={e => {
+            e.clipboardData.setData(
+              "text/plain",
+              JSON.stringify(elements.filter(element => element.isSelected))
+            );
+            deleteSelectedElements();
+            drawScene();
+            e.preventDefault();
+          }}
+          onCopy={e => {
+            e.clipboardData.setData(
+              "text/plain",
+              JSON.stringify(elements.filter(element => element.isSelected))
+            );
+            e.preventDefault();
+          }}
+          onPaste={e => {
+            const paste = e.clipboardData.getData("text");
+            let parsedElements;
+            try {
+              parsedElements = JSON.parse(paste);
+            } catch (e) {}
+            if (
+              Array.isArray(parsedElements) &&
+              parsedElements.length > 0 &&
+              parsedElements[0].type // need to implement a better check here...
+            ) {
+              clearSelection();
+              parsedElements.forEach(parsedElement => {
+                // 원본 element의 위치에서 오른쪽으로 10, 아래로 10 만큼 이동
+                parsedElement.x += 10;
+                parsedElement.y += 10;
+                // JSON.stringify는 함수를 제거함. 따라서 draw 함수를 추가하기위해 호출
+                generateDraw(parsedElement);
+                elements.push(parsedElement);
+              });
+              drawScene();
+            }
+            e.preventDefault();
+          }}
+        >
           {this.renderOption({ type: "rectangle", children: "Rectangle" })}
           {this.renderOption({ type: "ellipse", children: "Ellipse" })}
           {this.renderOption({ type: "arrow", children: "Arrow" })}
@@ -518,16 +563,19 @@ class App extends React.Component {
                 const font = context.font;
                 // element font로 context font 변경
                 context.font = element.font;
-                element.measure = context.measureText(element.text);
+                const {
+                  actualBoundingBoxAscent,
+                  actualBoundingBoxDescent,
+                  width
+                } = context.measureText(element.text);
                 // context의 원래 font로 변경
                 context.font = font;
                 const height =
-                  element.measure.actualBoundingBoxAscent +
-                  element.measure.actualBoundingBoxDescent;
+                  actualBoundingBoxAscent + actualBoundingBoxDescent;
                 // text 가운데 정렬
-                element.x -= element.measure.width / 2;
-                element.y -= element.measure.actualBoundingBoxAscent;
-                element.width = element.measure.width;
+                element.x -= width / 2;
+                element.y -= actualBoundingBoxAscent;
+                element.width = width;
                 element.height = height;
               }
               generateDraw(element);
