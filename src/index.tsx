@@ -613,23 +613,37 @@ class App extends React.Component {
               const cursorStyle = document.documentElement.style.cursor;
               if (this.state.elementType === "selection") {
                 // 마우스의 클릭 위치가 element의 내부에 있는 element들중 첫번째 element
-                const selectedElement = elements.find(element => {
-                  const isSelected = hitTest(element, x, y);
-                  if (isSelected) {
-                    element.isSelected = true;
+                const hitElement = elements.find(element =>
+                  hitTest(element, x, y)
+                );
+
+                // if we click on something
+                if (hitElement) {
+                  if (hitElement.isSelected) {
+                    // If that element is selected, do nothing
+                    // we're likely going to drag it
+                    // 이미 선택된 element가 있는 상황에서 다른 element를 클릭했을 때
+                  } else {
+                    // We unselect every other elements unless shift is pressed
+                    if (!e.shiftKey) {
+                      clearSelection();
+                    }
+                    hitElement.isSelected = true;
                   }
-                  return isSelected;
-                });
-
-                // deselect everything except target element to-be-selected
-                elements.forEach(element => {
-                  if (element === selectedElement) return;
-                  element.isSelected = false;
-                });
-
-                if (selectedElement) {
-                  this.setState({ draggingElement: selectedElement });
+                } else {
+                  // If we don't click on anything, let's remove all the selected elements
+                  clearSelection();
                 }
+
+                // // deselect everything except target element to-be-selected
+                // elements.forEach(element => {
+                //   if (element === selectedElement) return;
+                //   element.isSelected = false;
+                // });
+
+                // if (selectedElement) {
+                //   this.setState({ draggingElement: selectedElement });
+                // }
 
                 isDraggingElements = elements.some(
                   element => element.isSelected
