@@ -535,11 +535,14 @@ class App extends React.Component {
                   return isSelected;
                 });
 
+                // deselect everything except target element to-be-selected
+                elements.forEach(element => {
+                  if (element === selectedElement) return;
+                  element.isSelected = false;
+                });
+
                 if (selectedElement) {
                   this.setState({ draggingElement: selectedElement });
-                } else {
-                  // selected element 영역 밖을 클릭했을때
-                  clearSelection();
                 }
 
                 isDraggingElements = elements.some(
