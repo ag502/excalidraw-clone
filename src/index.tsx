@@ -17,21 +17,97 @@ type ExcaliburTextElement = ExcaliburElement & {
 const elements: ExcaliburElement[] = [];
 
 /**
- * @param {*} x
- * @param {*} y
- * @returns
- *
- * @description x, y 좌표가 element 내부인지 판단하는 함수
+ * 점과 선 segment 사이의 최단거리
+ * https://stackoverflow.com/a/6853926/232122
  */
-function isInsideAnElement(x: number, y: number) {
-  return (element: ExcaliburElement) => {
+function distanceBetweenPointAndSegment(
+  x: number,
+  y: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+) {
+  const A = x - x1;
+  const B = y - y1;
+  const C = x2 - x1;
+  const D = y2 - y1;
+  const dot = A * C + B * D;
+  const lenSquare = C * C + D * D;
+  let param = -1;
+  if (lenSquare !== 0) {
+    // in case of 0 length line
+    param = dot / lenSquare;
+  }
+  let xx, yy;
+  if (param < 0) {
+    xx = x1;
+    yy = y1;
+  } else if (param > 1) {
+    xx = x2;
+    yy = y2;
+  } else {
+    xx = x1 + param * C;
+    yy = y1 + param * D;
+  }
+  const dx = x - xx;
+  const dy = y - yy;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/** element를 선택하기위해 클릭한 마우스의 좌표가 element line의 x 픽셀 이내인지 판단하는 함수 */
+function hitTest(element: ExcaliburElement, x: number, y: number) {
+  // For shapes that are composed of lines, we only enable point-selection when the distance
+  // of the click is less than x pixels of any of the lines that the shape is composed of
+  const lineThreshold = 10;
+
+  if (
+    element.type === "rectangle" ||
+    // There doesn't seem to be a closed form solution for the distance between
+    // a point and an ellipse, let's assume it's a rectangle for now...
+    // 타원은 네변이 없지만 rectangle로 현재는 취급
+    element.type === "ellipse"
+  ) {
     const x1 = getElementAbsoluteX1(element);
     const x2 = getElementAbsoluteX2(element);
     const y1 = getElementAbsoluteY1(element);
     const y2 = getElementAbsoluteY2(element);
 
-    return x1 <= x && x <= x2 && y1 <= y && y <= y2;
-  };
+    /**
+     * (x1, y1) --A-- (x2, y1)
+     *     |D            |B
+     * (x1, y2) --C-- (x2, y2)
+     */
+    return (
+      distanceBetweenPointAndSegment(x, y, x1, y1, x2, y1) < lineThreshold || // A
+      distanceBetweenPointAndSegment(x, y, x2, y1, x2, y2) < lineThreshold || // B
+      distanceBetweenPointAndSegment(x, y, x2, y2, x1, y2) < lineThreshold || // C
+      distanceBetweenPointAndSegment(x, y, x1, y2, x1, y1) < lineThreshold // D
+    );
+  } else if (element.type === "arrow") {
+    const [x1, y1, x2, y2, x3, y3, x4, y4] = getArrowPoints(element);
+    // The computation is done at the origin, we need to add a translation
+    x -= element.x;
+    y -= element.y;
+
+    return (
+      //       \
+      distanceBetweenPointAndSegment(x, y, x3, y3, x2, y2) < lineThreshold ||
+      // -------
+      distanceBetweenPointAndSegment(x, y, x1, y1, x2, y2) < lineThreshold ||
+      //       /
+      distanceBetweenPointAndSegment(x, y, x4, y4, x2, y2) < lineThreshold
+    );
+  } else if (element.type === "text") {
+    const x1 = getElementAbsoluteX1(element);
+    const x2 = getElementAbsoluteX2(element);
+    const y1 = getElementAbsoluteY1(element);
+    const y2 = getElementAbsoluteY2(element);
+
+    return x >= x1 && x <= x2 && y >= y1 && y <= y2;
+  } else {
+    throw new Error("Unimplemented type " + element.type);
+  }
 }
 
 /**
@@ -153,6 +229,29 @@ function isTextElement(
   return element.type === "text";
 }
 
+function getArrowPoints(element: ExcaliburElement) {
+  const x1 = 0;
+  const y1 = 0;
+  const x2 = element.width;
+  const y2 = element.height;
+
+  const size = 30; // pixel
+  const distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+
+  // 화살표 꼭지 좌표 위치 및 크기 결정하는 로직
+  // Scale down the arrow until we hit a certain size so that it doesn't look weird
+  const minSize = Math.min(size, distance / 2);
+  const xs = x2 - ((x2 - x1) / distance) * minSize;
+  const ys = y2 - ((y2 - y1) / distance) * minSize;
+
+  // 화살표 꼭지 좌표
+  const angle = 20; // degrees
+  const [x3, y3] = rotate(xs, ys, x2, y2, (-angle * Math.PI) / 180);
+  const [x4, y4] = rotate(xs, ys, x2, y2, (angle * Math.PI) / 180);
+
+  return [x1, y1, x2, y2, x3, y3, x4, y4];
+}
+
 /**
  * @param {newElement} element
  * @description `newElement` 에서 만들어진 `element` 객체에 `element`를 그리는 `draw`함수를 추가하는 함수
@@ -192,24 +291,7 @@ function generateDraw(element: ExcaliburElement) {
       context.translate(-element.x, -element.y);
     };
   } else if (element.type === "arrow") {
-    const x1 = 0;
-    const y1 = 0;
-    const x2 = element.width;
-    const y2 = element.height;
-
-    const size = 30; // pixel
-    const distance = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
-
-    // 화살표 꼭지 좌표 위치 및 크기 결정하는 로직
-    // Scale down the arrow until we hit a certain size so that it doesn't look weird
-    const minSize = Math.min(size, distance / 2);
-    const xs = x2 - ((x2 - x1) / distance) * minSize;
-    const ys = y2 - ((y2 - y1) / distance) * minSize;
-
-    // 화살표 꼭지 좌표
-    const angle = 20; // degrees
-    const [x3, y3] = rotate(xs, ys, x2, y2, (-angle * Math.PI) / 180);
-    const [x4, y4] = rotate(xs, ys, x2, y2, (angle * Math.PI) / 180);
+    const [x1, y1, x2, y2, x3, y3, x4, y4] = getArrowPoints(element);
 
     const shapes = [
       //      \
@@ -528,7 +610,7 @@ class App extends React.Component {
               if (this.state.elementType === "selection") {
                 // 마우스의 클릭 위치가 element의 내부에 있는 element들중 첫번째 element
                 const selectedElement = elements.find(element => {
-                  const isSelected = isInsideAnElement(x, y)(element);
+                  const isSelected = hitTest(element, x, y);
                   if (isSelected) {
                     element.isSelected = true;
                   }
